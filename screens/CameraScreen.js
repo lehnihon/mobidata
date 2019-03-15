@@ -1,11 +1,15 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { BarCodeScanner, Permissions } from 'expo';
+import { StyleSheet, Text, View,TouchableOpacity } from 'react-native';
+import { Camera, Permissions } from 'expo';
 import{ Home } from './HomeScreen';
 
 export default class CameraScreen extends React.Component {
+  static navigationOptions = {
+    title: 'Câmera',
+  };
   state = {
     hasCameraPermission: null,
+    type: Camera.Constants.Type.back,
   }
 
   async componentDidMount() {
@@ -16,24 +20,48 @@ export default class CameraScreen extends React.Component {
   render() {
     const { hasCameraPermission } = this.state;
 
-    if (hasCameraPermission === null) {
-      return <Text>Permissão para câmera</Text>;
+    snap = async () => {
+      if (this.camera) {
+        let photo = await this.camera.takePictureAsync();
+      }
     }
-    if (hasCameraPermission === false) {
-      return <Text>Sem acesso a câmera</Text>;
-    }
-    return (
-      <View style={{ flex: 1 }}>
-        <BarCodeScanner
-          onBarCodeScanned={this.handleBarCodeScanned}
-          style={StyleSheet.absoluteFill}
-        />
-      </View>
-    );
-  }
 
-  handleBarCodeScanned = ({ type, data }) => {
-    alert(`Bar code with type ${type} and data ${data} has been scanned!`);
-    this.props.navigation.navigate('Home',{ 'nota' : data })
+    if (hasCameraPermission === null) {
+      return <View />;
+    } else if (hasCameraPermission === false) {
+      return <Text>No access to camera</Text>;
+    } else {
+      return (
+        <View style={{ flex: 1 }}>
+          <Camera style={{ flex: 1 }} type={this.state.type}>
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: 'transparent',
+                flexDirection: 'row',
+              }}>
+              <TouchableOpacity
+                style={{
+                  flex: 0.1,
+                  alignSelf: 'flex-end',
+                  alignItems: 'center',
+                }}
+                onPress={() => {
+                  this.setState({
+                    type: this.state.type === Camera.Constants.Type.back
+                      ? Camera.Constants.Type.front
+                      : Camera.Constants.Type.back,
+                  });
+                }}>
+                <Text
+                  style={{ fontSize: 18, marginBottom: 10, color: 'white' }}>
+                  {' '}Flip{' '}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Camera>
+        </View>
+      );
+    }
   }
 }

@@ -30,7 +30,7 @@ const LinksStack = createStackNavigator({
 });
 
 LinksStack.navigationOptions = {
-  tabBarLabel: 'Links',
+  tabBarLabel: 'Histórico',
   tabBarIcon: ({ focused }) => (
     <TabBarIcon
       focused={focused}
@@ -44,7 +44,7 @@ const SettingsStack = createStackNavigator({
 });
 
 SettingsStack.navigationOptions = {
-  tabBarLabel: 'Settings',
+  tabBarLabel: 'Configurações',
   tabBarIcon: ({ focused }) => (
     <TabBarIcon
       focused={focused}
