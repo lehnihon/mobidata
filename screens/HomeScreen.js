@@ -9,15 +9,29 @@ import {
   AsyncStorage,
   Alert,
   TouchableOpacity,
-  Text
+  Text,
+  FlatList,
+  NetInfo,
+  ToastAndroid,
+  Platform
 } from 'react-native';
-import { Camera, Permissions } from 'expo';
+import { Camera, Permissions, BarCodeScanner } from 'expo';
+import { Ionicons } from '@expo/vector-icons';
 import Forms from '../constants/Forms';
 
 export default class HomeScreen extends React.Component {
-  static navigationOptions = {
-    title: 'Datacerta'
-  };
+  static navigationOptions = ({ navigation }) => { 
+  return {
+    headerTitle: 'Datacerta',
+    headerRight: (
+      <Ionicons  onPress={() => navigation.navigate('List')} style={{marginRight:10}} name={Platform.OS === 'ios' ? 'ios-list' : 'md-list'} size={32} />
+    )
+  }}
+
+  state = {
+    hasCameraPermission: null,
+    type: Camera.Constants.Type.back,
+  }
 
   constructor(props) {
     super(props);
@@ -25,59 +39,78 @@ export default class HomeScreen extends React.Component {
       nota: '',
       userId: '',
       status: '',
+      latitude: '',
+      longitude: '',
+      error: '',
       statusLista: [],
       baixaLista:[],
-      gravar: false
+      gravar: false,
+      encomendas:[],
+      scanear: false,
+      isConnected: true
     };
   }
 
   componentWillMount(){
-    if(this.props.navigation.getParam('nota', '') != ''){
-      let nota = {nota: this.props.navigation.getParam('nota', '')};
-      this.setState(nota);
-    }
-
     this.getStatus();
-    this.getUserId();
-    this.getBaixa();
-    
   }
 
-  getUserId = async () => {
-    let userId = '';
-    try {
-      userId = await AsyncStorage.getItem('id') || 'none';
-      console.log(userId);
-    } catch (error) {
-      // Error retrieving data
-      console.log(error.message);
-    }
-    this.setState({userId:userId});
+  async componentDidMount() {
+    const { status } = await Permissions.askAsync(Permissions.CAMERA);
+    this.setState({ hasCameraPermission: status === 'granted' });
+    NetInfo.isConnected.addEventListener('connectionChange', this.handleConnectivityChange);
+  }
+  
+  componentWillUnmount() {
+    NetInfo.isConnected.removeEventListener('connectionChange', this.handleConnectivityChange);
+    clearInterval(this.interval);
+  }
+
+  getGeo(){
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        this.setState({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          error: null,
+        });
+      },
+      (error) => this.setState({ error: error.message }),
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 },
+    );
+  }
+
+  handleConnectivityChange = isConnected => {
+    this.setState({ isConnected });
   }
 
   getStatus() {
     axios.get('http://34.200.50.59/mobidataapi/status.php')
-    .then(response => this.setState({statusLista:response.data}))
-    .catch(function (error) {
-      // handle error
-      console.log(error);
-    })
-  }
-
-  getBaixa() {
-    axios.get('http://34.200.50.59/mobidataapi/baixa.php', {
-      params: {
-        id: 784
+    .then(response => {
+      try {
+        AsyncStorage.setItem('status', this.state.id);
+        this.setState({statusLista:response.data})
+      } catch (error) {
+        ToastAndroid.show('Erro ao baixar status!', ToastAndroid.SHORT);
       }
+      this.setState({statusLista:response.data})
     })
-    .then(response => console.log(response.data))
     .catch(function (error) {
       // handle error
-      console.log(error);
+      getStatusStorage();
     })
   }
 
-  gravarEncomenda(){
+  getStatusStorage = async () => {
+    try {
+      lista = await AsyncStorage.getItem('status') || 'none';
+      this.setState({statusLista:lista})
+    } catch (error) {
+      ToastAndroid.show('Erro ao consultar status do banco!', ToastAndroid.SHORT);
+    }
+  };
+
+  gravarEncomenda = async() =>{
     if(this.state.nota == ''){
       Alert.alert('Preencha o número da nota');
       return;
@@ -86,99 +119,187 @@ export default class HomeScreen extends React.Component {
       Alert.alert('Selecione um status');
       return;
     }
-
-    this.setState({gravar:true});
-  }
-
-  state = {
-    hasCameraPermission: null,
-    type: Camera.Constants.Type.back,
-  }
-
-  async componentDidMount() {
-    const { status } = await Permissions.askAsync(Permissions.CAMERA);
-    this.setState({ hasCameraPermission: status === 'granted' });
-  }
-
-  snap = async () => {
-    console.log('camera');
-    if (this.camera) {
-      options = { quality: 0.1 };
-      let photo = await this.camera.takePictureAsync(options);
-
-      formData = new FormData();
-      formData.append('nota', this.state.nota);
-      formData.append('status', this.state.status);
-      formData.append('foto', {
-        uri: photo.uri,
-        name: `photo.${photo.uri.split('.').pop()}`,
-        type: `image/${photo.uri.split('.').pop()}`
-      });
-
-      axios({
-        method: 'POST',
-        url: 'http://34.200.50.59/mobidataapi/baixa.php',
-        data: formData,
-        config: { headers: {'Content-Type': 'multipart/form-data' }}
-      })
-      .then(response => console.log(response.data))
-      .catch(function (error) {
-        // handle error
-        console.log(error);
-      })
+    encomendasStorage = JSON.parse(await AsyncStorage.getItem('encomendas'));
+    this.setState({encomendas:encomendasStorage})
+    if(this.state.status.tira_foto == 'N'){
+      this.semFoto();
+    }else{
+      this.setState({gravar:true});
     }
+  }
+
+  mostrarEncomendas(){
+    if(this.state.encomendas !== "undefined"){
+      if(this.state.encomendas.length != 0){
+        return <FlatList
+        data={this.state.encomendas}
+        renderItem={({item}) => <Text style={styles.encomendaStyle}>{item.nota}</Text>}
+        keyExtractor={(item, index) => index.toString()}
+        />
+      }
+    }
+  }
+
+  fecharCamera(){
+    this.setState({gravar:false,scanear:false})
+  }
+
+  semFoto = async () => {
+    try {
+      data = new Date().getFullYear()+"-"+(new Date().getMonth()+1)+"-"+new Date().getDate(); 
+      hora = new Date().getHours()+":"+new Date().getMinutes()+":"+new Date().getSeconds();
+      encomendas = [...this.state.encomendas];
+      salvarEnc = true;
+      encomendas.map((val,index) => {
+        salvarEnc = (val.nota == this.state.nota) ? false : true
+      });
+      if(salvarEnc){
+        encomendas.unshift({
+          nota: this.state.nota,
+          data: data,
+          hora: hora,
+          status: this.state.status,
+          latitude: this.state.latitude,
+          longitude: this.state.longitude,
+          foto: {
+            uri: '',
+            name: '',
+            type: ''
+          }
+        });
+        this.setState({encomendas:encomendas})
+        AsyncStorage.setItem('encomendas', JSON.stringify(encomendas));
+        this.setState({
+          nota:''
+        });
+        ToastAndroid.show('Salvo com sucesso!', ToastAndroid.SHORT);
+      }else{
+        Alert.alert("Baixa de nota já iniciada, aguarde o envio!");
+      }
+    }catch (error) {
+      // Error saving data
+    }
+  }
+
+  comFoto = async () => {
+
+    if (this.camera) {
+      try {
+        options = { quality: 0.1 };
+        let photo = await this.camera.takePictureAsync(options);
+        data = new Date().getFullYear()+"-"+(new Date().getMonth()+1)+"-"+new Date().getDate(); 
+        hora = new Date().getHours()+":"+new Date().getMinutes()+":"+new Date().getSeconds();
+        encomendas = [...this.state.encomendas];
+        salvarEnc = true;
+        encomendas.map((val,index) => {
+          salvarEnc = (val.nota == this.state.nota) ? false : true
+        });
+        if(salvarEnc){
+          encomendas.unshift({
+            nota: this.state.nota,
+            data: data,
+            hora: hora,
+            status: this.state.status,
+            latitude: this.state.latitude,
+            longitude: this.state.longitude,
+            foto: {
+              uri: photo.uri,
+              name: `photo.${photo.uri.split('.').pop()}`,
+              type: `image/${photo.uri.split('.').pop()}`
+            }
+          });
+          this.setState({encomendas:encomendas})
+          AsyncStorage.setItem('encomendas', JSON.stringify(encomendas));
+          this.setState({
+            nota:''
+          });
+          ToastAndroid.show('Salvo com sucesso!', ToastAndroid.SHORT);
+        }else{
+          Alert.alert("Baixa de nota já iniciada, aguarde o envio!");
+        }
+      } catch (error) {
+        // Error saving data
+      }
+      this.fecharCamera();
+    }
+  }
+
+  handleBarCodeScanned = ({ type, data }) => {
+    this.setState({nota:data});
+    this.setState({scanear:false});
   }
 
   render() {
 
     const { hasCameraPermission } = this.state;
 
-    if(this.state.gravar){
+    if(this.state.scanear){
+      if (hasCameraPermission === null) {
+        return <Text>Permissão para câmera</Text>;
+      }
+      if (hasCameraPermission === false) {
+        return <Text>Sem acesso a câmera</Text>;
+      }
+      return (
+        <View style={{ flex: 1, flexDirection: 'row' }}>
+          <BarCodeScanner
+            onBarCodeScanned={this.handleBarCodeScanned}
+            style={StyleSheet.absoluteFill}
+          >
+            <TouchableOpacity
+              style={{
+                alignSelf: 'flex-end',
+                alignItems: 'center',
+                padding:10
+              }}
+              onPress={() => this.fecharCamera()}
+            >
+              <Ionicons name={Platform.OS === 'ios' ? 'ios-close-circle-outline' : 'md-close-circle-outline'} style={{color:'#FFF'}} size={32} />
+            </TouchableOpacity>
+          </BarCodeScanner>
+        </View>
+      );
+    }else if(this.state.gravar){
       if (hasCameraPermission === null) {
         return <View />;
       } else if (hasCameraPermission === false) {
         return <Text>No access to camera</Text>;
       } else {
         return (
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, flexDirection: 'row'  }}>
             <Camera ref={ (ref) => {this.camera = ref} } style={{ flex: 1 }} type={this.state.type}>
               <View
-                style={{
-                  flex: 1,
-                  backgroundColor: 'transparent',
-                  flexDirection: 'row',
-                }}>
+                style={styles.viewStyle}>
                 <TouchableOpacity
                   style={{
                     flex: 1,
                     alignSelf: 'flex-end',
-                    alignItems: 'center',
+                    alignItems: 'flex-start',
                   }}
-                  onPress={() => {
-                    this.setState({
-                      type: this.state.type === Camera.Constants.Type.back
-                        ? Camera.Constants.Type.front
-                        : Camera.Constants.Type.back,
-                    });
-                  }}>
-                  <Text
-                    style={{ fontSize: 18, marginBottom: 10, color: 'white' }}>
-                    {' '}Flip{' '}
-                  </Text>
+                  >
+                  
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{
-                    flex: 2,
-                    alignSelf: 'flex-end',
+                    flex: 1,
+                    alignSelf: 'center',
                     alignItems: 'center',
+                    padding:10
                   }}
-                  onPress={this.snap}
+                  onPress={this.comFoto}
                 >
-                  <Text
-                    style={{ fontSize: 18, marginBottom: 10, color: "white" }}
-                  >
-                    Capture
-                  </Text>
+                  <Ionicons name="md-camera" size={32} color="white" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    alignSelf: 'flex-start',
+                    alignItems: 'flex-end',
+                    padding:10
+                  }}
+                  onPress={() => this.fecharCamera()}
+                >
+                  <Ionicons name={Platform.OS === 'ios' ? 'ios-close-circle-outline' : 'md-close-circle-outline'} style={{color:'#FFF'}} size={32} />
                 </TouchableOpacity>
               </View>
             </Camera>
@@ -187,36 +308,50 @@ export default class HomeScreen extends React.Component {
       }
     }else{
       return (
-        <View style={styles.container}  contentContainerStyle={styles.contentContainer}>
-          <TextInput
-            style={Forms.inputBase}
-            onChangeText={(nota) => this.setState({nota})}
-            value={this.state.nota}
-            placeholder="Número da Nota"
-            keyboardType="numeric"
-          />
-          <Button
-            onPress={() => this.props.navigation.navigate('Scanner')}
-            title="Câmera"
-            color="#841584"
-          />
-          <Picker
-            style={Forms.inputBase}
-            selectedValue={this.state.status}
-            onValueChange={(itemValue, itemIndex) =>
-              this.setState({status: itemValue})
-            }>
-            <Picker.Item label="Selecione" value="0" />
-            {this.state.statusLista.map((i, index) => (
-              <Picker.Item key={index} label={i['nome']} value={i['id']} />
-            ))}
-          </Picker>
-          <Button
-            onPress={() => this.gravarEncomenda()}
-            title="Gravar"
-            color="#000"
-          />
-        </View>
+        <View contentContainerStyle={styles.contentContainer}>
+          <View style={{flexDirection: 'row',paddingTop:10,paddingBottom:10}}>
+            <View style={{flex: 3}}>
+              <TextInput
+                style={Forms.inputBase}
+                onChangeText={(nota) => this.setState({nota})}
+                value={this.state.nota}
+                placeholder="Número da Nota"
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={{flex: 1, alignItems: 'flex-end', marginRight:5}}>
+              <Ionicons onPress={() => this.setState({scanear:true})} name={Platform.OS === 'ios' ? 'ios-barcode' : 'md-barcode'} size={32} />
+            </View>
+          </View> 
+          <View style={{flexDirection: 'row', paddingBottom:10}}>
+            <View style={{flex: 1}}>
+              <Picker
+                style={Forms.inputBase}
+                selectedValue={this.state.status}
+                onValueChange={(itemValue, itemIndex) =>
+                  this.setState({status: itemValue})
+                }>
+                <Picker.Item label="Selecione" value="0" />
+                {this.state.statusLista.map((i, index) => (
+                  <Picker.Item key={index} label={i['nome']} value={i} />
+                ))}
+              </Picker>
+            </View>
+          </View>
+          <View style={{display: 'flex', flexDirection: 'row'}}>
+            <View style={{flex: 1}}>
+              <Button
+                onPress={() => this.gravarEncomenda()}
+                title="GRAVAR ENCOMENDA"
+                color="#000"
+              />
+            </View>
+          </View>
+          <View style={{display: 'flex', flexDirection: 'column'}}>
+            <Text style={{width:'100%', textAlign:'center', paddingTop: 5, paddingBottom:5, fontWeight:'bold',borderBottomWidth:1, borderBottomColor:'#000'}}>LISTA DE BAIXA</Text>
+            {this.mostrarEncomendas()}
+          </View> 
+        </View> 
       );
     }
   }
@@ -224,12 +359,24 @@ export default class HomeScreen extends React.Component {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     backgroundColor: '#fff',
   },
   contentContainer: {
     paddingTop: 30,
     paddingLeft:10,
     paddingRight:10
+  },
+  viewStyle:{
+    flex: 1,
+    backgroundColor: 'transparent',
+    flexDirection: 'row',
+    alignContent: 'center'
+  },
+  encomendaStyle:{
+    paddingLeft:10,
+    paddingTop:5,
+    paddingBottom:5, 
+    borderBottomWidth:1,
+    borderBottomColor:'#000'
   }
 });

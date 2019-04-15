@@ -1,10 +1,8 @@
 import { createStackNavigator } from 'react-navigation'; // Version can be specified in package.json
-import CameraScreen from '../screens/CameraScreen';
-import ScannerScreen from '../screens/ScannerScreen';
+import ListScreen from '../screens/ListScreen';
 
 export default createStackNavigator(
     {
-        Camera: CameraScreen,
-        Scanner: ScannerScreen
+        List: ListScreen
     }
 );

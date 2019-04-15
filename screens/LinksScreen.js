@@ -5,24 +5,55 @@ import {
   View,
   AsyncStorage,
   SectionList,
-  Text
+  Text,
+  ToastAndroid,
+  Platform,
+  TouchableOpacity
 } from 'react-native';
 
 export default class LinksScreen extends React.Component {
-  static navigationOptions = {
-    title: 'Histórico',
-  };
+  static navigationOptions = ({ navigation }) => { 
+    return {
+      headerTitle: 'Datacerta'
+  }}
 
   constructor(props) {
     super(props);
     this.state = { 
       userId: '',
-      baixaLista:[]
+      baixaLista:[],
+      sections:[]
     };
   }
 
   componentWillMount(){
-    this.getUserId();
+    this.getEncomendas();
+  }
+
+  getEncomendas = async() =>{
+    await this.getUserId();
+
+    if(this.state.userId != 'none'){
+      ToastAndroid.show('Carregando histórico!', ToastAndroid.SHORT);
+      axios.get('http://34.200.50.59/mobidataapi/baixa.php', {
+        params: {
+          id: this.state.userId
+        }
+      })
+      .then(response => {
+        ToastAndroid.show('Histórico carregado!', ToastAndroid.SHORT);
+        this.setState({baixaLista:response.data})
+        sections = [...this.state.sections];
+        this.state.baixaLista.map((i, index) => {
+          sections.push({title:i['nota'],data:[i['nomeentrega'],i['enderecoentrega'],i['motivo'],i['databaixa']]})
+        })
+        this.setState({sections:sections})
+      })
+      .catch(function (error) {
+        // handle error
+        ToastAndroid.show('Erro ao carregar!', ToastAndroid.SHORT);
+      })   
+    }
   }
 
   getUserId = async () => {
@@ -34,37 +65,19 @@ export default class LinksScreen extends React.Component {
       // Error retrieving data
       console.log(error.message);
     }
+    return Promise.resolve(1);
   }
 
-  getBaixa() {
-    axios.get('http://34.200.50.59/mobidataapi/baixa.php', {
-      params: {
-        id: this.state.userId
-      }
-    })
-    .then(response => this.setState({baixaLista:response.data}))
-    .catch(function (error) {
-      // handle error
-      console.log(error);
-    })
+  getBaixa =  async() => {
+    
   }
 
   render() {
-    sections = []
-
-    if(this.state.userId != '' && this.state.baixaLista.length == 0){
-      this.getBaixa();
-    }
-
-    this.state.baixaLista.map((i, index) => {
-      sections.push({title:i['nota'],data:[i['nomeentrega'],i['enderecoentrega'],i['motivo'],i['databaixa']]})
-    })
-
 
     return (
       <View style={styles.container}>
       <SectionList
-       sections={sections}
+       sections={this.state.sections}
        renderSectionHeader={ ({section}) => <Text style={styles.SectionHeader}> { section.title } </Text> }
        renderItem={ ({item}) => <Text style={styles.SectionListItemS} > { item } </Text> }
        keyExtractor={ (item, index) => index }
