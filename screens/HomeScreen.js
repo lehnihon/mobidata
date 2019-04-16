@@ -47,7 +47,8 @@ export default class HomeScreen extends React.Component {
       gravar: false,
       encomendas:[],
       scanear: false,
-      isConnected: true
+      isConnected: true,
+      btnSubmit:false,
     };
   }
 
@@ -121,6 +122,7 @@ export default class HomeScreen extends React.Component {
     }
     encomendasStorage = JSON.parse(await AsyncStorage.getItem('encomendas'));
     this.setState({encomendas:encomendasStorage})
+    this.setState({btnSubmit:true});
     if(this.state.status.tira_foto == 'N'){
       this.semFoto();
     }else{
@@ -340,11 +342,12 @@ export default class HomeScreen extends React.Component {
           </View>
           <View style={{display: 'flex', flexDirection: 'row'}}>
             <View style={{flex: 1}}>
-              <Button
-                onPress={() => this.gravarEncomenda()}
-                title="GRAVAR ENCOMENDA"
-                color="#000"
-              />
+              <TouchableOpacity onPress={() => this.gravarEncomenda()} disabled={btnSubmit}>
+                <Button 
+                  title="GRAVAR ENCOMENDA"
+                  color="#000"
+                />
+              </TouchableOpacity>
             </View>
           </View>
           <View style={{display: 'flex', flexDirection: 'column'}}>

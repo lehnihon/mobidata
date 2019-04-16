@@ -33,7 +33,12 @@ export default class ListScreen extends React.Component {
             encomendas: [],
             latitude: '',
             longitude: '',
-            error: ''
+            error: '',
+            status:'',
+            statusLista:[
+                {'id': 1, 'nome': 'Entregue'},
+                {'id': 2, 'nome': 'Não Entregue'}
+            ]
         };
     }
 
@@ -61,10 +66,12 @@ export default class ListScreen extends React.Component {
     }
 
     getEncomendas() {
+        console.log(this.state.status);
         ToastAndroid.show('Carregando lista', ToastAndroid.SHORT);
         axios.get('http://34.200.50.59/mobidataapi/lista.php', {
             params: {
-                lista: this.state.lista
+                lista: this.state.lista,
+                status: this.state.status
             }
         })
         .then(response => {
@@ -146,6 +153,21 @@ export default class ListScreen extends React.Component {
                             placeholder="Lista"
                             keyboardType="numeric"
                         />
+                    </View>
+                </View>
+                <View style={{ flexDirection: 'row', paddingTop: 5, paddingBottom: 5 }}>
+                    <View style={{ flex: 1 }}>
+                        <Picker
+                        style={Forms.inputBase}
+                        selectedValue={this.state.status}
+                        onValueChange={(itemValue, itemIndex) =>
+                        this.setState({status: itemValue})
+                        }>
+                        <Picker.Item label="Todas" value="0" />
+                        {this.state.statusLista.map((i, index) => (
+                        <Picker.Item key={index} label={i['nome']} value={i} />
+                        ))}
+                        </Picker>
                     </View>
                 </View>
                 <View style={{ flexDirection: 'row', paddingTop: 5, paddingBottom: 10 }}>
