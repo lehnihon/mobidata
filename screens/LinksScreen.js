@@ -6,15 +6,13 @@ import {
   AsyncStorage,
   SectionList,
   Text,
-  ToastAndroid,
-  Platform,
-  TouchableOpacity
+  ToastAndroid
 } from 'react-native';
 
 export default class LinksScreen extends React.Component {
   static navigationOptions = ({ navigation }) => { 
     return {
-      headerTitle: 'Datacerta'
+      headerTitle: 'Histórico'
   }}
 
   constructor(props) {
@@ -98,7 +96,7 @@ const styles = StyleSheet.create({
     paddingRight:10
   },
   SectionHeader:{
-    backgroundColor : '#64B5F6',
+    backgroundColor : '#000',
     fontSize : 20,
     padding: 5,
     color: '#fff',

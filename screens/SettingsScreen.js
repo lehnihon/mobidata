@@ -52,13 +52,32 @@ export default class SettingsScreen extends React.Component {
             onPress={() => {
               try {
                 AsyncStorage.setItem('id', this.state.id);
-                alert('Salvo com sucesso :)');
+                alert('Salvo com sucesso!');
               } catch (error) {
                 // Error saving data
               }
             }}
-            title="Salvar"
-            color="#841584"
+            title="Salvar ID"
+            color="#000"
+          />
+          <View
+          style={{
+            marginTop:10
+          }}></View>
+          <Button
+            style={{
+              marginTop:10
+            }}
+            onPress={() => {
+              try {
+                AsyncStorage.setItem('encomendas', '');
+                alert('Banco de dados limpo');
+              } catch (error) {
+                // Error saving data
+              }
+            }}
+            title="LIMPAR BANCO DE DADOS"
+            color="#000"
           />
         </ScrollView>
       </View>

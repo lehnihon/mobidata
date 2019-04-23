@@ -49,6 +49,7 @@ export default class HomeScreen extends React.Component {
       scanear: false,
       isConnected: true,
       btnSubmit:false,
+      btnCamera:false
     };
   }
 
@@ -131,7 +132,7 @@ export default class HomeScreen extends React.Component {
   }
 
   mostrarEncomendas(){
-    if(this.state.encomendas !== "undefined"){
+    if(this.state.encomendas !== "undefined" && this.state.encomendas !== null){
       if(this.state.encomendas.length != 0){
         return <FlatList
         data={this.state.encomendas}
@@ -143,6 +144,9 @@ export default class HomeScreen extends React.Component {
   }
 
   fecharCamera(){
+    setTimeout(() => {
+      this.setState({btnSubmit:false,btnCamera:false});
+    },1500);
     this.setState({gravar:false,scanear:false})
   }
 
@@ -169,11 +173,11 @@ export default class HomeScreen extends React.Component {
             type: ''
           }
         });
-        this.setState({encomendas:encomendas})
+        this.setState({encomendas:encomendas,nota:''})
         AsyncStorage.setItem('encomendas', JSON.stringify(encomendas));
-        this.setState({
-          nota:''
-        });
+        setTimeout(() => {
+          this.setState({btnSubmit:false});
+        },1500)
         ToastAndroid.show('Salvo com sucesso!', ToastAndroid.SHORT);
       }else{
         Alert.alert("Baixa de nota já iniciada, aguarde o envio!");
@@ -186,6 +190,7 @@ export default class HomeScreen extends React.Component {
   comFoto = async () => {
 
     if (this.camera) {
+      this.setState({btnCamera:true});
       try {
         options = { quality: 0.1 };
         let photo = await this.camera.takePictureAsync(options);
@@ -210,11 +215,11 @@ export default class HomeScreen extends React.Component {
               type: `image/${photo.uri.split('.').pop()}`
             }
           });
-          this.setState({encomendas:encomendas})
+          this.setState({encomendas:encomendas,nota:''})
           AsyncStorage.setItem('encomendas', JSON.stringify(encomendas));
-          this.setState({
-            nota:''
-          });
+          setTimeout(() => {
+            this.setState({btnSubmit:false,btnCamera:false});
+          },1500)
           ToastAndroid.show('Salvo com sucesso!', ToastAndroid.SHORT);
         }else{
           Alert.alert("Baixa de nota já iniciada, aguarde o envio!");
@@ -289,6 +294,7 @@ export default class HomeScreen extends React.Component {
                     padding:10
                   }}
                   onPress={this.comFoto}
+                  disabled={this.state.btnCamera}
                 >
                   <Ionicons name="md-camera" size={32} color="white" />
                 </TouchableOpacity>
@@ -342,12 +348,12 @@ export default class HomeScreen extends React.Component {
           </View>
           <View style={{display: 'flex', flexDirection: 'row'}}>
             <View style={{flex: 1}}>
-              <TouchableOpacity onPress={() => this.gravarEncomenda()} disabled={btnSubmit}>
-                <Button 
-                  title="GRAVAR ENCOMENDA"
-                  color="#000"
-                />
-              </TouchableOpacity>
+              <Button 
+                onPress={() => this.gravarEncomenda()}
+                title="GRAVAR ENCOMENDA"
+                disabled={this.state.btnSubmit}
+                color="#000"
+              />
             </View>
           </View>
           <View style={{display: 'flex', flexDirection: 'column'}}>

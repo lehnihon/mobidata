@@ -36,53 +36,56 @@ export default class App extends React.Component {
     } catch (error) {
       ToastAndroid.show('Erro ao consultar encomenda do banco!', ToastAndroid.SHORT);
     }
+    if(userId == 'none'){
+      ToastAndroid.show('Defina um ID em configurações!', ToastAndroid.SHORT);
+    }else{
+      if(encomendasStorage != null){
+        if(this.state.isConnected && encomendasStorage.length != 0){
+          encomendas = [...encomendasStorage];
+          promises = [];
 
-    if(encomendasStorage != null){
-      if(this.state.isConnected && encomendasStorage.length != 0){
-        encomendas = [...encomendasStorage];
-        promises = [];
+          for(i in encomendas){
+            formData = new FormData();
 
-        for(i in encomendas){
-          formData = new FormData();
+            formData.append('userid', userId);
+            formData.append('nota', encomendas[i].nota);
+            formData.append('data', encomendas[i].data);
+            formData.append('hora', encomendas[i].hora);
+            formData.append('status', encomendas[i].status.id);
+            formData.append('latitude', encomendas[i].latitude);
+            formData.append('longitude', encomendas[i].longitude);
+            if(encomendas[i].foto.uri != ''){
+              formData.append('foto', {
+                uri: encomendas[i].foto.uri,
+                name: encomendas[i].foto.name,
+                type: encomendas[i].foto.type
+              });
+            }
 
-          formData.append('userid', userId);
-          formData.append('nota', encomendas[i].nota);
-          formData.append('data', encomendas[i].data);
-          formData.append('hora', encomendas[i].hora);
-          formData.append('status', encomendas[i].status.id);
-          formData.append('latitude', encomendas[i].latitude);
-          formData.append('longitude', encomendas[i].longitude);
-          if(encomendas[i].foto.uri != ''){
-            formData.append('foto', {
-              uri: encomendas[i].foto.uri,
-              name: encomendas[i].foto.name,
-              type: encomendas[i].foto.type
-            });
+            promises.push(
+              axios({
+                method: 'POST',
+                url: 'http://34.200.50.59/mobidataapi/baixa.php',
+                data: formData,
+                config: { headers: {'Content-Type': 'multipart/form-data' }}
+              })
+            )
           }
-
-          promises.push(
-            axios({
-              method: 'POST',
-              url: 'http://34.200.50.59/mobidataapi/baixa.php',
-              data: formData,
-              config: { headers: {'Content-Type': 'multipart/form-data' }}
+          axios.all(promises).then(function(results) {
+            results.forEach(function(response) {
+              encomendas.map((val,index) => {
+                (val.nota == response.data) ? encomendas.splice(index, 1) : ''
+              });
             })
-          )
-        }
-        axios.all(promises).then(function(results) {
-          results.forEach(function(response) {
-            encomendas.map((val,index) => {
-              (val.nota == response.data) ? encomendas.splice(index, 1) : ''
-            });
-          })
-        }).then(()=>{
+          }).then(()=>{
 
-          AsyncStorage.setItem('encomendas', JSON.stringify(encomendas));
-          ToastAndroid.show((encomendasStorage.length)+' Notas enviadas ', ToastAndroid.SHORT);
+            AsyncStorage.setItem('encomendas', JSON.stringify(encomendas));
+            ToastAndroid.show((encomendasStorage.length)+' Notas enviadas ', ToastAndroid.SHORT);
+          }
+          ).catch(function (error) {
+            ToastAndroid.show('Erro ao enviar!', ToastAndroid.SHORT);
+          });    
         }
-        ).catch(function (error) {
-          ToastAndroid.show('Erro ao enviar!', ToastAndroid.SHORT);
-        });    
       }
     }
   }

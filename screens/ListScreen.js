@@ -10,7 +10,8 @@ import {
     Text,
     FlatList,
     AsyncStorage,
-    TouchableOpacity
+    TouchableOpacity,
+    Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Forms from '../constants/Forms';
@@ -33,12 +34,7 @@ export default class ListScreen extends React.Component {
             encomendas: [],
             latitude: '',
             longitude: '',
-            error: '',
-            status:'',
-            statusLista:[
-                {'id': 1, 'nome': 'Entregue'},
-                {'id': 2, 'nome': 'Não Entregue'}
-            ]
+            error: ''
         };
     }
 
@@ -66,12 +62,11 @@ export default class ListScreen extends React.Component {
     }
 
     getEncomendas() {
-        console.log(this.state.status);
+        if(this.state.lista != ''){
         ToastAndroid.show('Carregando lista', ToastAndroid.SHORT);
         axios.get('http://34.200.50.59/mobidataapi/lista.php', {
             params: {
-                lista: this.state.lista,
-                status: this.state.status
+                lista: this.state.lista
             }
         })
         .then(response => {
@@ -81,6 +76,9 @@ export default class ListScreen extends React.Component {
         .catch(function (error) {
             ToastAndroid.show('Erro ao carregar!', ToastAndroid.SHORT);
         })
+        }else{
+            Alert.alert("Digite um número de lista!");
+        }
     }
 
     gravarEntrega = async (nota) => {
@@ -103,6 +101,7 @@ export default class ListScreen extends React.Component {
             }
         });
         AsyncStorage.setItem('encomendas', JSON.stringify(encomendas));
+   
         ToastAndroid.show('Nota '+nota+' Entregue', ToastAndroid.SHORT);
     }
 
@@ -132,7 +131,7 @@ export default class ListScreen extends React.Component {
                         </View>
                         <View style={{ flexDirection: 'row', paddingBottom: 10, paddingLeft: 10, paddingRight: 10, borderBottomWidth: 1, borderBottomColor: '#000' }}>
                             <View style={{ flex: 4 }}>
-                                <Text>{item.movimento}</Text>
+                                <Text>{(item.movimento === null)?'Sem movimentação':item.movimento}</Text>
                             </View>
                         </View>
                     </View>}
@@ -144,7 +143,6 @@ export default class ListScreen extends React.Component {
     render() {
         return (
             <View contentContainerStyle={styles.contentContainer}>
-
                 <View style={{ flexDirection: 'row', paddingTop: 10, paddingBottom: 5 }}>
                     <View style={{ flex: 1 }}>
                         <TextInput
@@ -153,21 +151,6 @@ export default class ListScreen extends React.Component {
                             placeholder="Lista"
                             keyboardType="numeric"
                         />
-                    </View>
-                </View>
-                <View style={{ flexDirection: 'row', paddingTop: 5, paddingBottom: 5 }}>
-                    <View style={{ flex: 1 }}>
-                        <Picker
-                        style={Forms.inputBase}
-                        selectedValue={this.state.status}
-                        onValueChange={(itemValue, itemIndex) =>
-                        this.setState({status: itemValue})
-                        }>
-                        <Picker.Item label="Todas" value="0" />
-                        {this.state.statusLista.map((i, index) => (
-                        <Picker.Item key={index} label={i['nome']} value={i} />
-                        ))}
-                        </Picker>
                     </View>
                 </View>
                 <View style={{ flexDirection: 'row', paddingTop: 5, paddingBottom: 10 }}>
