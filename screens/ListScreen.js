@@ -34,8 +34,13 @@ export default class ListScreen extends React.Component {
             encomendas: [],
             latitude: '',
             longitude: '',
-            error: ''
+            error: '',
+            saving:true,
+            entregues:0,
+            devolvidos:0,
+            total:0
         };
+        this.gravarEntrega = this.gravarEntrega.bind(this)
     }
 
     componentWillMount() {
@@ -70,11 +75,15 @@ export default class ListScreen extends React.Component {
             }
         })
         .then(response => {
-            this.setState({ listaEncomendas: response.data })
-            ToastAndroid.show('Lista carregada!', ToastAndroid.SHORT);
+            this.setState({ listaEncomendas: response.data.list,entregues:response.data.e,devolvidos:response.data.d,total:response.data.total })
+            if(response.data.list.length){
+                ToastAndroid.show('Lista carregada!', ToastAndroid.SHORT);
+            }else{
+                ToastAndroid.show('Não há encomendas sem movimentação!', ToastAndroid.SHORT);
+            }
         })
-        .catch(function (error) {
-            ToastAndroid.show('Erro ao carregar!', ToastAndroid.SHORT);
+        .catch((error) => {
+            ToastAndroid.show('Sem sinal de internet!', ToastAndroid.SHORT);
         })
         }else{
             Alert.alert("Digite um número de lista!");
@@ -82,6 +91,11 @@ export default class ListScreen extends React.Component {
     }
 
     gravarEntrega = async (nota) => {
+        listaFilter = this.state.listaEncomendas.filter(val => {
+            return val.idexterno != nota
+        })
+        
+        this.setState({listaEncomendas:listaFilter,saving:false})
         await this.getStorage()
         data = new Date().getFullYear() + "-" + (new Date().getMonth() + 1) + "-" + new Date().getDate();
         hora = new Date().getHours() + ":" + new Date().getMinutes() + ":" + new Date().getSeconds();
@@ -100,44 +114,8 @@ export default class ListScreen extends React.Component {
                 type: ''
             }
         });
-        AsyncStorage.setItem('encomendas', JSON.stringify(encomendas));
-   
-        ToastAndroid.show('Nota '+nota+' Entregue', ToastAndroid.SHORT);
-    }
-
-    mostrarEncomendas() {
-        return <View style={styles.container}>
-            <FlatList
-                data={this.state.listaEncomendas}
-                renderItem={({ item }) =>
-                    <View>
-                        <View style={{ flexDirection: 'row', paddingLeft: 10 }}>
-                            <View style={{ flex: 3, paddingTop: 10, paddingBottom: 10 }}>
-                                <Text>{item.idexterno}</Text>
-                            </View>
-                            <TouchableOpacity style={{ flex: 1, alignItems: 'flex-end', paddingTop: 10, paddingBottom: 10, paddingLeft: 10, paddingRight: 10 }} onPress={() => this.gravarEntrega(item.idexterno)}>
-                                <Ionicons name={Platform.OS === 'ios' ? 'ios-cloud-download' : 'md-cloud-download'} size={22} />
-                            </TouchableOpacity>
-                        </View>
-                        <View style={{ flexDirection: 'row', paddingBottom: 10, paddingLeft: 10, paddingRight: 10 }}>
-                            <View style={{ flex: 4 }}>
-                                <Text>{item.nomeentrega}</Text>
-                            </View>
-                        </View>
-                        <View style={{ flexDirection: 'row', paddingBottom: 10, paddingLeft: 10, paddingRight: 10 }}>
-                            <View style={{ flex: 4 }}>
-                                <Text>{item.enderecoentrega}</Text>
-                            </View>
-                        </View>
-                        <View style={{ flexDirection: 'row', paddingBottom: 10, paddingLeft: 10, paddingRight: 10, borderBottomWidth: 1, borderBottomColor: '#000' }}>
-                            <View style={{ flex: 4 }}>
-                                <Text>{(item.movimento === null)?'Sem movimentação':item.movimento}</Text>
-                            </View>
-                        </View>
-                    </View>}
-                keyExtractor={(item, index) => index.toString()}
-            />
-        </View>
+        await AsyncStorage.setItem('encomendas', JSON.stringify(encomendas));
+        this.setState({saving:true})
     }
 
     render() {
@@ -163,7 +141,52 @@ export default class ListScreen extends React.Component {
                         />
                     </View>
                 </View>
-                {this.mostrarEncomendas()}
+                <View style={{ flexDirection: 'row', paddingTop: 5, paddingBottom: 10,borderBottomWidth: 1, borderBottomColor: '#000'  }}>
+                    <View style={{ flex: 1 }}>
+                        <Text>TOT:{this.state.total}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text>ENT:{this.state.entregues}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text>DEV:{this.state.devolvidos}</Text>
+                    </View>
+                </View>
+
+                { this.state.saving  &&
+                <View style={styles.container}>
+                    <FlatList
+                        data={this.state.listaEncomendas}
+                        renderItem={({ item }) =>
+                            <View>
+                                <View style={{ flexDirection: 'row', paddingLeft: 10 }}>
+                                    <View style={{ flex: 3, paddingTop: 10, paddingBottom: 10 }}>
+                                        <Text>{item.idexterno}</Text>
+                                    </View>
+                                    <TouchableOpacity style={{ flex: 1, alignItems: 'flex-end', paddingTop: 10, paddingBottom: 10, paddingLeft: 10, paddingRight: 25 }} onPress={() => this.gravarEntrega(item.idexterno)}>
+                                        <Ionicons name={Platform.OS === 'ios' ? 'ios-cloud-download' : 'md-cloud-download'} size={22} />
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={{ flexDirection: 'row', paddingBottom: 10, paddingLeft: 10, paddingRight: 10 }}>
+                                    <View style={{ flex: 4 }}>
+                                        <Text>{item.nomeentrega}</Text>
+                                    </View>
+                                </View>
+                                <View style={{ flexDirection: 'row', paddingBottom: 10, paddingLeft: 10, paddingRight: 10 }}>
+                                    <View style={{ flex: 4 }}>
+                                        <Text>{item.enderecoentrega}</Text>
+                                    </View>
+                                </View>
+                                <View style={{ flexDirection: 'row', paddingBottom: 10, paddingLeft: 10, paddingRight: 10, borderBottomWidth: 1, borderBottomColor: '#000' }}>
+                                    <View style={{ flex: 4 }}>
+                                        <Text>{(item.movimento === null)?'Sem movimentação':item.movimento}</Text>
+                                    </View>
+                                </View>
+                            </View>}
+                        keyExtractor={(item, index) => index.toString()}
+                    />
+                </View>
+                }
             </View>
         );
     }

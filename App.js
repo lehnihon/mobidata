@@ -1,7 +1,10 @@
 import React from 'react';
 import axios from 'axios';
 import { Platform, StatusBar, StyleSheet, View, ToastAndroid, NetInfo, AsyncStorage } from 'react-native';
-import { AppLoading, Asset, Font, Icon } from 'expo';
+import { AppLoading } from 'expo';
+import * as Font from 'expo-font';
+import { Asset } from 'expo-asset';
+import { Ionicons } from '@expo/vector-icons';
 import AppNavigator from './navigation/AppNavigator';
 
 export default class App extends React.Component {
@@ -14,18 +17,13 @@ export default class App extends React.Component {
     this.setState({ isConnected });
   }
 
-  async componentDidMount() {
-    NetInfo.isConnected.addEventListener('connectionChange', this.handleConnectivityChange);
-  }
-
-  componentWillMount(){
+  async componentWillMount(){
     this.interval = setInterval(() => {
       this.enviarEncomenda();
     }, 10000);
   }
 
   componentWillUnmount() {
-    NetInfo.isConnected.removeEventListener('connectionChange', this.handleConnectivityChange);
     clearInterval(this.interval);
   }
 
@@ -62,6 +60,8 @@ export default class App extends React.Component {
               });
             }
 
+            if (i == 5) { break; }
+
             promises.push(
               axios({
                 method: 'POST',
@@ -74,13 +74,12 @@ export default class App extends React.Component {
           axios.all(promises).then(function(results) {
             results.forEach(function(response) {
               encomendas.map((val,index) => {
-                (val.nota == response.data) ? encomendas.splice(index, 1) : ''
+                (val.nota == response.data || val.nota == '') ? encomendas.splice(index, 1) : ''
               });
             })
           }).then(()=>{
-
             AsyncStorage.setItem('encomendas', JSON.stringify(encomendas));
-            ToastAndroid.show((encomendasStorage.length)+' Notas enviadas ', ToastAndroid.SHORT);
+            ToastAndroid.show('Enviando notas!', ToastAndroid.SHORT);
           }
           ).catch(function (error) {
             ToastAndroid.show('Erro ao enviar!', ToastAndroid.SHORT);
@@ -117,7 +116,7 @@ export default class App extends React.Component {
       ]),
       Font.loadAsync({
         // This is the font that we are using for our tab bar
-        ...Icon.Ionicons.font,
+        ...Ionicons.font,
         // We include SpaceMono because we use it in HomeScreen.js. Feel free
         // to remove this if you are not using it in your app
         'space-mono': require('./assets/fonts/SpaceMono-Regular.ttf'),

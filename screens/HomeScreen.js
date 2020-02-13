@@ -11,20 +11,21 @@ import {
   TouchableOpacity,
   Text,
   FlatList,
-  NetInfo,
   ToastAndroid,
   Platform
 } from 'react-native';
-import { Camera, Permissions, BarCodeScanner } from 'expo';
+import * as Permissions from 'expo-permissions';
+import { Camera } from 'expo-camera';
+import { BarCodeScanner } from 'expo-barcode-scanner';
 import { Ionicons } from '@expo/vector-icons';
 import Forms from '../constants/Forms';
 
 export default class HomeScreen extends React.Component {
   static navigationOptions = ({ navigation }) => { 
   return {
-    headerTitle: 'Datacerta',
+    headerTitle: 'App 1.3',
     headerRight: (
-      <Ionicons  onPress={() => navigation.navigate('List')} style={{marginRight:10}} name={Platform.OS === 'ios' ? 'ios-list' : 'md-list'} size={32} />
+      <Ionicons  onPress={() => navigation.navigate('List')} style={{marginRight:10}} name={Platform.OS === 'ios' ? 'ios-arrow-dropright-circle' : 'md-arrow-dropright-circle'} size={32} />
     )
   }}
 
@@ -49,22 +50,23 @@ export default class HomeScreen extends React.Component {
       scanear: false,
       isConnected: true,
       btnSubmit:false,
-      btnCamera:false
+      btnCamera:false,
+      btnEnviar:false
     };
   }
 
-  componentWillMount(){
+  async componentWillMount(){
     this.getStatus();
+    this.getGeo();
+    this.setState({encomendas:JSON.parse(await AsyncStorage.getItem('encomendas'))});
   }
 
   async componentDidMount() {
     const { status } = await Permissions.askAsync(Permissions.CAMERA);
     this.setState({ hasCameraPermission: status === 'granted' });
-    NetInfo.isConnected.addEventListener('connectionChange', this.handleConnectivityChange);
   }
   
   componentWillUnmount() {
-    NetInfo.isConnected.removeEventListener('connectionChange', this.handleConnectivityChange);
     clearInterval(this.interval);
   }
 
@@ -122,8 +124,10 @@ export default class HomeScreen extends React.Component {
       return;
     }
     encomendasStorage = JSON.parse(await AsyncStorage.getItem('encomendas'));
-    this.setState({encomendas:encomendasStorage})
-    this.setState({btnSubmit:true});
+    if(encomendasStorage == null || encomendasStorage == ''){
+      encomendasStorage = [];
+    }
+    this.setState({encomendas:encomendasStorage,btnSubmit:true})
     if(this.state.status.tira_foto == 'N'){
       this.semFoto();
     }else{
@@ -143,10 +147,8 @@ export default class HomeScreen extends React.Component {
     }
   }
 
-  fecharCamera(){
-    setTimeout(() => {
-      this.setState({btnSubmit:false,btnCamera:false});
-    },1500);
+  async fecharCamera(){
+    this.setState({btnSubmit:false,btnCamera:false});
     this.setState({gravar:false,scanear:false})
   }
 
@@ -154,12 +156,37 @@ export default class HomeScreen extends React.Component {
     try {
       data = new Date().getFullYear()+"-"+(new Date().getMonth()+1)+"-"+new Date().getDate(); 
       hora = new Date().getHours()+":"+new Date().getMinutes()+":"+new Date().getSeconds();
+      
       encomendas = [...this.state.encomendas];
-      salvarEnc = true;
-      encomendas.map((val,index) => {
-        salvarEnc = (val.nota == this.state.nota) ? false : true
+      encomendas.unshift({
+        nota: this.state.nota,
+        data: data,
+        hora: hora,
+        status: this.state.status,
+        latitude: this.state.latitude,
+        longitude: this.state.longitude,
+        foto: {
+          uri: '',
+          name: '',
+          type: ''
+        }
       });
-      if(salvarEnc){
+      this.setState({encomendas:encomendas,nota:''})
+      AsyncStorage.setItem('encomendas', JSON.stringify(encomendas));
+      ToastAndroid.show('Salvo com sucesso!', ToastAndroid.SHORT);
+      this.setState({btnSubmit:false});
+    }catch (error) {
+      console.log('caught error' + error);
+    }
+  }
+
+  comFoto = async () => {
+    if (this.camera) {
+      try {
+        let photo = await this.camera.takePictureAsync({ quality: 0.1 });
+        data = new Date().getFullYear()+"-"+(new Date().getMonth()+1)+"-"+new Date().getDate(); 
+        hora = new Date().getHours()+":"+new Date().getMinutes()+":"+new Date().getSeconds();
+        encomendas = [...this.state.encomendas];
         encomendas.unshift({
           nota: this.state.nota,
           data: data,
@@ -168,66 +195,81 @@ export default class HomeScreen extends React.Component {
           latitude: this.state.latitude,
           longitude: this.state.longitude,
           foto: {
-            uri: '',
-            name: '',
-            type: ''
+            uri: photo.uri,
+            name: `photo.${photo.uri.split('.').pop()}`,
+            type: `image/${photo.uri.split('.').pop()}`
           }
         });
         this.setState({encomendas:encomendas,nota:''})
+        
         AsyncStorage.setItem('encomendas', JSON.stringify(encomendas));
-        setTimeout(() => {
-          this.setState({btnSubmit:false});
-        },1500)
         ToastAndroid.show('Salvo com sucesso!', ToastAndroid.SHORT);
-      }else{
-        Alert.alert("Baixa de nota já iniciada, aguarde o envio!");
-      }
-    }catch (error) {
-      // Error saving data
-    }
-  }
-
-  comFoto = async () => {
-
-    if (this.camera) {
-      this.setState({btnCamera:true});
-      try {
-        options = { quality: 0.1 };
-        let photo = await this.camera.takePictureAsync(options);
-        data = new Date().getFullYear()+"-"+(new Date().getMonth()+1)+"-"+new Date().getDate(); 
-        hora = new Date().getHours()+":"+new Date().getMinutes()+":"+new Date().getSeconds();
-        encomendas = [...this.state.encomendas];
-        salvarEnc = true;
-        encomendas.map((val,index) => {
-          salvarEnc = (val.nota == this.state.nota) ? false : true
-        });
-        if(salvarEnc){
-          encomendas.unshift({
-            nota: this.state.nota,
-            data: data,
-            hora: hora,
-            status: this.state.status,
-            latitude: this.state.latitude,
-            longitude: this.state.longitude,
-            foto: {
-              uri: photo.uri,
-              name: `photo.${photo.uri.split('.').pop()}`,
-              type: `image/${photo.uri.split('.').pop()}`
-            }
-          });
-          this.setState({encomendas:encomendas,nota:''})
-          AsyncStorage.setItem('encomendas', JSON.stringify(encomendas));
-          setTimeout(() => {
-            this.setState({btnSubmit:false,btnCamera:false});
-          },1500)
-          ToastAndroid.show('Salvo com sucesso!', ToastAndroid.SHORT);
-        }else{
-          Alert.alert("Baixa de nota já iniciada, aguarde o envio!");
-        }
       } catch (error) {
         // Error saving data
       }
-      this.fecharCamera();
+    }else{
+      ToastAndroid.show('Câmera sem permissão', ToastAndroid.SHORT);
+    }
+    this.fecharCamera();
+  }
+
+  enviarEncomenda = async() => {
+    this.setState({btnEnviar:true})
+    try {
+      userId = await AsyncStorage.getItem('id') || 'none';
+      encomendasStorage = JSON.parse(await AsyncStorage.getItem('encomendas'));
+    } catch (error) {
+      ToastAndroid.show('Erro ao consultar encomenda do banco!', ToastAndroid.SHORT);
+    }
+    if(userId == 'none'){
+      ToastAndroid.show('Defina um ID em configurações!', ToastAndroid.SHORT);
+    }else{
+      if(encomendasStorage != null){
+        if(this.state.isConnected && encomendasStorage.length != 0){
+          encomendas = [...encomendasStorage];
+          promises = [];
+
+          for(i in encomendas){
+            formData = new FormData();
+
+            formData.append('userid', userId);
+            formData.append('nota', encomendas[i].nota);
+            formData.append('data', encomendas[i].data);
+            formData.append('hora', encomendas[i].hora);
+            formData.append('status', encomendas[i].status.id);
+            formData.append('latitude', encomendas[i].latitude);
+            formData.append('longitude', encomendas[i].longitude);
+            if(encomendas[i].foto.uri != ''){
+              formData.append('foto', {
+                uri: encomendas[i].foto.uri,
+                name: encomendas[i].foto.name,
+                type: encomendas[i].foto.type
+              });
+            }
+
+            promises.push(
+              axios({
+                method: 'POST',
+                url: 'http://34.200.50.59/mobidataapi/baixa.php',
+                data: formData,
+                config: { headers: {'Content-Type': 'multipart/form-data' }}
+              })
+            )
+          }
+          ToastAndroid.show('Enviando notas, aguarde por favor', ToastAndroid.SHORT);
+          axios.all(promises).then(function(results) {
+          }).then(()=>{
+            encomendas = [];
+            AsyncStorage.setItem('encomendas', JSON.stringify(encomendas));
+            ToastAndroid.show((encomendasStorage.length)+' Notas enviadas ', ToastAndroid.SHORT);
+            this.setState({encomendas:encomendas,btnEnviar:false});
+          }
+          ).catch(function (error) {
+            ToastAndroid.show('Erro ao enviar!', ToastAndroid.SHORT);
+            this.setState({encomendas:encomendas,btnEnviar:false});
+          });    
+        }
+      }
     }
   }
 
@@ -347,7 +389,8 @@ export default class HomeScreen extends React.Component {
             </View>
           </View>
           <View style={{display: 'flex', flexDirection: 'row'}}>
-            <View style={{flex: 1}}>
+            <View style={{flex: 1}}></View>
+            <View style={{flex: 2}}>
               <Button 
                 onPress={() => this.gravarEncomenda()}
                 title="GRAVAR ENCOMENDA"
@@ -355,11 +398,30 @@ export default class HomeScreen extends React.Component {
                 color="#000"
               />
             </View>
+            <View style={{flex: 1}}></View>
           </View>
-          <View style={{display: 'flex', flexDirection: 'column'}}>
-            <Text style={{width:'100%', textAlign:'center', paddingTop: 5, paddingBottom:5, fontWeight:'bold',borderBottomWidth:1, borderBottomColor:'#000'}}>LISTA DE BAIXA</Text>
-            {this.mostrarEncomendas()}
+          <View style={{display: 'flex', flexDirection: 'row'}}>
+            <View style={{flex: 3}}>
+              <Text style={{width:'100%', textAlign:'left', paddingTop: 5, paddingBottom:5, marginTop:10, paddingLeft:10, fontWeight:'bold',borderBottomWidth:1, borderBottomColor:'#000'}}>ENCOMENDAS Á ENVIAR</Text>
+            </View>
+            <View style={{flex: 1}}>
+              <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      alignSelf: 'flex-end',
+                      alignItems: 'center',
+                      padding:10
+                    }}
+                    onPress={() => this.enviarEncomenda()}
+                    disabled={this.state.btnEnviar}
+                  >
+                <Ionicons name={Platform.OS === 'ios' ? 'ios-refresh-circle' : 'md-refresh-circle'} size={32} />
+              </TouchableOpacity>
+            </View>
           </View> 
+          <View style={{display: 'flex', flexDirection: 'row'}}>
+            {this.mostrarEncomendas()}    
+          </View>  
         </View> 
       );
     }

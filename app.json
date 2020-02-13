@@ -3,7 +3,7 @@
     "name": "MobiData",
     "slug": "DTCMob",
     "privacy": "public",
-    "sdkVersion": "32.0.0",
+    "sdkVersion": "35.0.0",
     "platforms": [
       "ios",
       "android"
@@ -12,7 +12,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "splash": {
-      "image": "./assets/images/splash.png",
+      "image": "./assets/images/logo-top.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
